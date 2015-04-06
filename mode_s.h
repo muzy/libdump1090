@@ -161,7 +161,7 @@ struct modesMessage {
     int  altitude;
     int  unit; 
     int  bFlags;                // Flags related to fields in this structure
-    struct modeMessage *next; // next message
+    struct modesMessage *next; // next message
 };
 
 // Program global state
@@ -197,10 +197,13 @@ void decodeModesMessage (struct modesMessage *mm, unsigned char *msg);
 void displayModesMessage(struct modesMessage *mm);
 void useModesMessage    (struct modesMessage *mm);
 void computeMagnitudeVector(uint16_t *pData);
-int  decodeCPR          (struct aircraft *a, int fflag, int surface);
-int  decodeCPRrelative  (struct aircraft *a, int fflag, int surface);
 void modesInitErrorInfo ();
-
+void modesInit();
+void modesInitConfig();
+void setAgressiveFixCRC();
+void setFixCRC();
+void setPhaseEnhance();
+struct modesMessage *processData(unsigned char *buf);
 
 #ifdef __cplusplus
 }
