@@ -1068,7 +1068,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
           && (errors      <= MODES_MSG_ENCODER_ERRS) ) {
 
             // Set initial mm structure details
-            // mm.timestampMsg = Modes.timestampBlk + (j*6);
+        	// mm.timestampMsg = Modes.timestampBlk + (j*6); @TODO get current time
             sigStrength    = (sigStrength + 0x7F) >> 8;
             mm.signalLevel = ((sigStrength < 255) ? sigStrength : 255);
             mm.phase_corrected = use_correction;
@@ -1108,13 +1108,42 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
 //
 void useModesMessage(struct modesMessage *mm) {
     if ((Modes.check_crc == 0) || (mm->crcok) || (mm->correctedbits)) { // not checking, ok or fixed
-
+    	// create a copy :)
+    	struct modesMessage *newMessage = (struct ModesMessage *) malloc(sizeof(*newMessage));
+        memset(newMessage, 0, sizeof(*newMessage));
+        memcpy(newMessage,mm,sizeof(*mm));
+        // put it to the end
+    	if(!Modes.modeMessages){
+    		newMessage->next = NULL;
+    		Modes.modeMessages = newMessage;
+    	}else{
+    		struct modesMessage *n = Modes.modeMessages;
+    		while(n->next != NULL){
+    			n = n->next;
+    		}
+    		n->next = newMessage;
+    	}
     }
 }
 
-void processData(unsigned char *buf) {
+// clear the mode messages
+void clearModeMessages(void){
+	if (Modes.modeMessages) {
+		struct modesMessage *n = Modes.modeMessages;
+		while(n != NULL){
+			struct modesMessage *n1 = n;
+			n = n->next;
+			free(n1);
+		}
+	}
+}
+
+// processes data from an rtlsdr device
+struct modeMessages *processData(unsigned char *buf) {
+	clearModeMessages();
 	Modes.pData = (uint16_t *) buf;
 	computeMagnitudeVector(Modes.pData);
 	detectModeS(Modes.magnitude, MODES_ASYNC_BUF_SAMPLES);
+	return Modes.modeMessages;
 }
 

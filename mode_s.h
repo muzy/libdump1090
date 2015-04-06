@@ -119,22 +119,6 @@
 
 #define MODES_NOTUSED(V) ((void) V)
 
-// Program global state
-struct {                             // Internal state
-
-    uint16_t       *pData; // Raw IQ sample buffers from RTL
-
-    uint16_t       *magnitude;       // Magnitude vector
-    uint16_t       *maglut;          // I/Q -> Magnitude lookup table
-
-    // Configuration
-    int   phase_enhance;             // Enable phase enhancement if true
-    int   nfix_crc;                  // Number of crc bit error(s) to correct
-    int   check_crc;                 // Only display messages with good CRC
-    int   debug;                     // Debugging mode
-    int   quiet;                     // Suppress stdout
-} Modes;
-
 // The struct we use to store information about a decoded message.
 struct modesMessage {
     // Generic fields
@@ -179,6 +163,24 @@ struct modesMessage {
     int  bFlags;                // Flags related to fields in this structure
     struct modeMessage *next; // next message
 };
+
+// Program global state
+struct {                             // Internal state
+
+    uint16_t       *pData; // Raw IQ sample buffers from RTL
+
+    uint16_t       *magnitude;       // Magnitude vector
+    uint16_t       *maglut;          // I/Q -> Magnitude lookup table
+
+    // Configuration
+    int   phase_enhance;             // Enable phase enhancement if true
+    int   nfix_crc;                  // Number of crc bit error(s) to correct
+    int   check_crc;                 // Only display messages with good CRC
+    int   debug;                     // Debugging mode
+    int   quiet;                     // Suppress stdout
+    struct modesMessage *modeMessages;
+} Modes;
+
 
 // ======================== function declarations =========================
 
