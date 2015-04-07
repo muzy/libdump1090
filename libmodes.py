@@ -23,6 +23,8 @@ def load_libmodes():
 
 libmodes = load_libmodes()
 
+print libmodes
+
 class modesMessage(Structure):
     pass
 
@@ -58,4 +60,23 @@ modesMessage._fields_ = [("msg", c_char_p),
                         ("bFlags", c_int),
                         ("next", POINTER(modesMessage))]
 
-                        
+# void modesInit();
+f = libmodes.modesInit
+f.restype, f.argtypes = None, None
+
+# void setAggressiveFixCRC();
+f = libmodes.setAggressiveFixCRC
+f.restype, f.argtypes = None, None
+
+# void setFixCRC();
+f = libmodes.setFixCRC
+f.restype, f.argtypes = None, None
+
+# void setPhaseEnhance();
+f = libmodes.setPhaseEnhance
+f.restype, f.argtypes = None, None
+
+# struct modesMessage *processData(unsigned char *buf);
+f = libmodes.processData
+f.restype, f.argtypes = POINTER(modesMessage), [c_char_p]
+
