@@ -59,7 +59,7 @@
     #include <sys/ioctl.h>
 #endif
 
-#define MODES_ASYNC_BUF_SIZE       (16*16384)                 // 256k
+#define MODES_ASYNC_BUF_SIZE       (8*16*16384)               // 2M
 #define MODES_ASYNC_BUF_SAMPLES    (MODES_ASYNC_BUF_SIZE / 2) // Each sample is 2 bytes
 #define MODES_MSG_SQUELCH_LEVEL    0x02FF                     // Average signal strength limit
 #define MODES_MSG_ENCODER_ERRS     3                          // Maximum number of encoding errors
@@ -87,8 +87,6 @@
 
 #define MODES_UNIT_FEET 0
 #define MODES_UNIT_METERS 1
-
-#define MODES_USER_LATLON_VALID (1<<0)
 
 #define MODES_ACFLAGS_LATLON_VALID   (1<<0)  // Aircraft Lat/Lon is decoded
 #define MODES_ACFLAGS_ALTITUDE_VALID (1<<1)  // Aircraft altitude is known

@@ -2,10 +2,10 @@ from ctypes import *
 from ctypes.util import find_library
 
 def load_libmodes():
-    driver_files = ['modes.dll', 'libmodes.so']
-    driver_files += ['..//modes.dll', '..//libmodes.so']
-    driver_files += ['modes//modes.dll', 'modes//libmodes.so']
-    driver_files += [find_library('modes'), find_library('libmodes')]
+    driver_files = ['libmodes.dll', 'libmodes.so']
+    driver_files += ['..//libmodes.dll', '..//libmodes.so']
+    driver_files += ['libmodes//libmodes.dll', 'libmodes//libmodes.so']
+    driver_files += [find_library('libmodes'), find_library('libmodes')]
 
     dll = None
 
@@ -21,9 +21,9 @@ def load_libmodes():
 
     return dll
 
-libmodes = load_libmodes()
+libModeS = load_libmodes()
 
-print libmodes
+print libModeS
 
 class modesMessage(Structure):
     pass
@@ -61,22 +61,23 @@ modesMessage._fields_ = [("msg", c_char_p),
                         ("next", POINTER(modesMessage))]
 
 # void modesInit();
-f = libmodes.modesInit
+f = libModeS.modesInit
 f.restype, f.argtypes = None, None
 
 # void setAggressiveFixCRC();
-f = libmodes.setAggressiveFixCRC
+f = libModeS.setAggressiveFixCRC
 f.restype, f.argtypes = None, None
 
 # void setFixCRC();
-f = libmodes.setFixCRC
+f = libModeS.setFixCRC
 f.restype, f.argtypes = None, None
 
 # void setPhaseEnhance();
-f = libmodes.setPhaseEnhance
+f = libModeS.setPhaseEnhance
 f.restype, f.argtypes = None, None
 
 # struct modesMessage *processData(unsigned char *buf);
-f = libmodes.processData
-f.restype, f.argtypes = POINTER(modesMessage), [c_char_p]
+f = libModeS.processData
+f.restype, f.argtypes = POINTER(modesMessage), [POINTER(c_ubyte)]
 
+__all__ = ['libModeS', 'modesMessage']

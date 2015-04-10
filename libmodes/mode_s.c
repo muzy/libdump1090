@@ -30,6 +30,322 @@
 
 #include "mode_s.h"
 
+//
+//=========================================================================
+//
+// Capability table
+char *ca_str[8] = {
+    /* 0 */ "Level 1 (Surveillance Only)",
+    /* 1 */ "Level 2 (DF0,4,5,11)",
+    /* 2 */ "Level 3 (DF0,4,5,11,20,21)",
+    /* 3 */ "Level 4 (DF0,4,5,11,20,21,24)",
+    /* 4 */ "Level 2+3+4 (DF0,4,5,11,20,21,24,code7 - is on ground)",
+    /* 5 */ "Level 2+3+4 (DF0,4,5,11,20,21,24,code7 - is airborne)",
+    /* 6 */ "Level 2+3+4 (DF0,4,5,11,20,21,24,code7)",
+    /* 7 */ "Level 7 ???"
+};
+
+// DF 18 Control field table.
+char *cf_str[8] = {
+    /* 0 */ "ADS-B ES/NT device with ICAO 24-bit address",
+    /* 1 */ "ADS-B ES/NT device with other address",
+    /* 2 */ "Fine format TIS-B",
+    /* 3 */ "Coarse format TIS-B",
+    /* 4 */ "TIS-B management message",
+    /* 5 */ "TIS-B relay of ADS-B message with other address",
+    /* 6 */ "ADS-B rebroadcast using DF-17 message format",
+    /* 7 */ "Reserved"
+};
+
+// Flight status table
+char *fs_str[8] = {
+    /* 0 */ "Normal, Airborne",
+    /* 1 */ "Normal, On the ground",
+    /* 2 */ "ALERT,  Airborne",
+    /* 3 */ "ALERT,  On the ground",
+    /* 4 */ "ALERT & Special Position Identification. Airborne or Ground",
+    /* 5 */ "Special Position Identification. Airborne or Ground",
+    /* 6 */ "Value 6 is not assigned",
+    /* 7 */ "Value 7 is not assigned"
+};
+
+// Emergency state table
+// from https://www.ll.mit.edu/mission/aviation/publications/publication-files/atc-reports/Grappel_2007_ATC-334_WW-15318.pdf
+// and 1090-DO-260B_FRAC
+char *es_str[8] = {
+    /* 0 */ "No emergency",
+    /* 1 */ "General emergency (squawk 7700)",
+    /* 2 */ "Lifeguard/Medical",
+    /* 3 */ "Minimum fuel",
+    /* 4 */ "No communications (squawk 7600)",
+    /* 5 */ "Unlawful interference (squawk 7500)",
+    /* 6 */ "Downed Aircraft",
+    /* 7 */ "Reserved"
+};
+
+char *getMEDescription(int metype, int mesub) {
+    char *mename = "Unknown";
+
+    if (metype >= 1 && metype <= 4)
+        mename = "Aircraft Identification and Category";
+    else if (metype >= 5 && metype <= 8)
+        mename = "Surface Position";
+    else if (metype >= 9 && metype <= 18)
+        mename = "Airborne Position (Baro Altitude)";
+    else if (metype == 19 && mesub >=1 && mesub <= 4)
+        mename = "Airborne Velocity";
+    else if (metype >= 20 && metype <= 22)
+        mename = "Airborne Position (GNSS Height)";
+    else if (metype == 23 && mesub == 0)
+        mename = "Test Message";
+    else if (metype == 23 && mesub == 7)
+        mename = "Test Message -- Squawk";
+    else if (metype == 24 && mesub == 1)
+        mename = "Surface System Status";
+    else if (metype == 28 && mesub == 1)
+        mename = "Extended Squitter Aircraft Status (Emergency)";
+    else if (metype == 28 && mesub == 2)
+        mename = "Extended Squitter Aircraft Status (1090ES TCAS RA)";
+    else if (metype == 29 && (mesub == 0 || mesub == 1))
+        mename = "Target State and Status Message";
+    else if (metype == 31 && (mesub == 0 || mesub == 1))
+        mename = "Aircraft Operational Status Message";
+    return mename;
+}
+
+//
+//=========================================================================
+//
+// This function gets a decoded Mode S Message and prints it on the screen
+// in a human readable format.
+//
+void displayModesMessage(struct modesMessage *mm) {
+    int j;
+
+    for (j = 0; j < mm->msgbits/8; j++) printf("%02x", mm->msg[j]);
+    printf(";\n");
+
+
+    if (mm->msgtype < 32)
+        printf("CRC: %06x (%s)\n", (int)mm->crc, mm->crcok ? "ok" : "wrong");
+
+    if (mm->correctedbits != 0)
+        printf("No. of bit errors fixed: %d\n", mm->correctedbits);
+
+    if (mm->msgtype == 0) { // DF 0
+        printf("DF 0: Short Air-Air Surveillance.\n");
+        printf("  VS             : %s\n",  (mm->msg[0] & 0x04) ? "Ground" : "Airborne");
+        printf("  CC             : %d\n", ((mm->msg[0] & 0x02) >> 1));
+        printf("  SL             : %d\n", ((mm->msg[1] & 0xE0) >> 5));
+        printf("  Altitude       : %d %s\n", mm->altitude,
+            (mm->unit == MODES_UNIT_METERS) ? "meters" : "feet");
+        printf("  ICAO Address   : %06x\n", mm->addr);
+
+    } else if (mm->msgtype == 4 || mm->msgtype == 20) {
+        printf("DF %d: %s, Altitude Reply.\n", mm->msgtype,
+            (mm->msgtype == 4) ? "Surveillance" : "Comm-B");
+        printf("  Flight Status  : %s\n", fs_str[mm->fs]);
+        printf("  DR             : %d\n", ((mm->msg[1] >> 3) & 0x1F));
+        printf("  UM             : %d\n", (((mm->msg[1]  & 7) << 3) | (mm->msg[2] >> 5)));
+        printf("  Altitude       : %d %s\n", mm->altitude,
+            (mm->unit == MODES_UNIT_METERS) ? "meters" : "feet");
+        printf("  ICAO Address   : %06x\n", mm->addr);
+
+        if (mm->msgtype == 20) {
+            printf("  Comm-B BDS     : %x\n", mm->msg[4]);
+
+            // Decode the extended squitter message
+            if        ( mm->msg[4]       == 0x20) { // BDS 2,0 Aircraft identification
+                printf("    BDS 2,0 Aircraft Identification : %s\n", mm->flight);
+            }
+        }
+
+    } else if (mm->msgtype == 5 || mm->msgtype == 21) {
+        printf("DF %d: %s, Identity Reply.\n", mm->msgtype,
+            (mm->msgtype == 5) ? "Surveillance" : "Comm-B");
+        printf("  Flight Status  : %s\n", fs_str[mm->fs]);
+        printf("  DR             : %d\n", ((mm->msg[1] >> 3) & 0x1F));
+        printf("  UM             : %d\n", (((mm->msg[1]  & 7) << 3) | (mm->msg[2] >> 5)));
+        printf("  Squawk         : %04x\n", mm->modeA);
+        printf("  ICAO Address   : %06x\n", mm->addr);
+
+        if (mm->msgtype == 21) {
+            printf("  Comm-B BDS     : %x\n", mm->msg[4]);
+
+            // Decode the extended squitter message
+            if        ( mm->msg[4]       == 0x20) { // BDS 2,0 Aircraft identification
+                printf("    BDS 2,0 Aircraft Identification : %s\n", mm->flight);
+
+            }
+        }
+
+    } else if (mm->msgtype == 11) { // DF 11
+        printf("DF 11: All Call Reply.\n");
+        printf("  Capability  : %d (%s)\n", mm->ca, ca_str[mm->ca]);
+        printf("  ICAO Address: %06x\n", mm->addr);
+        if (mm->iid > 16)
+            {printf("  IID         : SI-%02d\n", mm->iid-16);}
+        else
+            {printf("  IID         : II-%02d\n", mm->iid);}
+
+    } else if (mm->msgtype == 16) { // DF 16
+        printf("DF 16: Long Air to Air ACAS\n");
+        printf("  VS             : %s\n",  (mm->msg[0] & 0x04) ? "Ground" : "Airborne");
+        printf("  CC             : %d\n", ((mm->msg[0] & 0x02) >> 1));
+        printf("  SL             : %d\n", ((mm->msg[1] & 0xE0) >> 5));
+        printf("  Altitude       : %d %s\n", mm->altitude,
+            (mm->unit == MODES_UNIT_METERS) ? "meters" : "feet");
+        printf("  ICAO Address   : %06x\n", mm->addr);
+
+    } else if (mm->msgtype == 17) { // DF 17
+        printf("DF 17: ADS-B message.\n");
+        printf("  Capability     : %d (%s)\n", mm->ca, ca_str[mm->ca]);
+        printf("  ICAO Address   : %06x\n", mm->addr);
+        printf("  Extended Squitter  Type: %d\n", mm->metype);
+        printf("  Extended Squitter  Sub : %d\n", mm->mesub);
+        printf("  Extended Squitter  Name: %s\n", getMEDescription(mm->metype, mm->mesub));
+
+        // Decode the extended squitter message
+        if (mm->metype >= 1 && mm->metype <= 4) { // Aircraft identification
+            printf("    Aircraft Type  : %c%d\n", ('A' + 4 - mm->metype), mm->mesub);
+            printf("    Identification : %s\n", mm->flight);
+
+        } else if (mm->metype == 19) { // Airborne Velocity
+            if (mm->mesub == 1 || mm->mesub == 2) {
+                printf("    EW status         : %s\n", (mm->bFlags & MODES_ACFLAGS_EWSPEED_VALID)  ? "Valid" : "Unavailable");
+                printf("    EW velocity       : %d\n", mm->ew_velocity);
+                printf("    NS status         : %s\n", (mm->bFlags & MODES_ACFLAGS_NSSPEED_VALID)  ? "Valid" : "Unavailable");
+                printf("    NS velocity       : %d\n", mm->ns_velocity);
+                printf("    Vertical status   : %s\n", (mm->bFlags & MODES_ACFLAGS_VERTRATE_VALID) ? "Valid" : "Unavailable");
+                printf("    Vertical rate src : %d\n", ((mm->msg[8] >> 4) & 1));
+                printf("    Vertical rate     : %d\n", mm->vert_rate);
+
+            } else if (mm->mesub == 3 || mm->mesub == 4) {
+                printf("    Heading status    : %s\n", (mm->bFlags & MODES_ACFLAGS_HEADING_VALID)  ? "Valid" : "Unavailable");
+                printf("    Heading           : %d\n", mm->heading);
+                printf("    Airspeed status   : %s\n", (mm->bFlags & MODES_ACFLAGS_SPEED_VALID)    ? "Valid" : "Unavailable");
+                printf("    Airspeed          : %d\n", mm->velocity);
+                printf("    Vertical status   : %s\n", (mm->bFlags & MODES_ACFLAGS_VERTRATE_VALID) ? "Valid" : "Unavailable");
+                printf("    Vertical rate src : %d\n", ((mm->msg[8] >> 4) & 1));
+                printf("    Vertical rate     : %d\n", mm->vert_rate);
+
+            } else {
+                printf("    Unrecognized ME subtype: %d subtype: %d\n", mm->metype, mm->mesub);
+            }
+
+        } else if (mm->metype >= 5 && mm->metype <= 22) { // Airborne position Baro
+            printf("    F flag   : %s\n", (mm->msg[6] & 0x04) ? "odd" : "even");
+            printf("    T flag   : %s\n", (mm->msg[6] & 0x08) ? "UTC" : "non-UTC");
+            printf("    Altitude : %d feet\n", mm->altitude);
+            if (mm->bFlags & MODES_ACFLAGS_LATLON_VALID) {
+                printf("    Latitude : %f\n", mm->fLat);
+                printf("    Longitude: %f\n", mm->fLon);
+            } else {
+                printf("    Latitude : %d (not decoded)\n", mm->raw_latitude);
+                printf("    Longitude: %d (not decoded)\n", mm->raw_longitude);
+            }
+
+        } else if (mm->metype == 28) { // Extended Squitter Aircraft Status
+            if (mm->mesub == 1) {
+				printf("    Emergency State: %s\n", es_str[(mm->msg[5] & 0xE0) >> 5]);
+				printf("    Squawk: %04x\n", mm->modeA);
+            } else {
+                printf("    Unrecognized ME subtype: %d subtype: %d\n", mm->metype, mm->mesub);
+            }
+
+        } else if (mm->metype == 23) { // Test Message
+			if (mm->mesub == 7) {
+				printf("    Squawk: %04x\n", mm->modeA);
+            } else {
+                printf("    Unrecognized ME subtype: %d subtype: %d\n", mm->metype, mm->mesub);
+			}
+        } else {
+            printf("    Unrecognized ME type: %d subtype: %d\n", mm->metype, mm->mesub);
+        }
+
+    } else if (mm->msgtype == 18) { // DF 18
+        printf("DF 18: Extended Squitter.\n");
+        printf("  Control Field : %d (%s)\n", mm->ca, cf_str[mm->ca]);
+        if ((mm->ca == 0) || (mm->ca == 1) || (mm->ca == 6)) {
+            if (mm->ca == 1) {
+                printf("  Other Address : %06x\n", mm->addr);
+            } else {
+                printf("  ICAO Address  : %06x\n", mm->addr);
+            }
+            printf("  Extended Squitter  Type: %d\n", mm->metype);
+            printf("  Extended Squitter  Sub : %d\n", mm->mesub);
+            printf("  Extended Squitter  Name: %s\n", getMEDescription(mm->metype, mm->mesub));
+
+            // Decode the extended squitter message
+            if (mm->metype >= 1 && mm->metype <= 4) { // Aircraft identification
+                printf("    Aircraft Type  : %c%d\n", ('A' + 4 - mm->metype), mm->mesub);
+                printf("    Identification : %s\n", mm->flight);
+
+            } else if (mm->metype == 19) { // Airborne Velocity
+                if (mm->mesub == 1 || mm->mesub == 2) {
+                    printf("    EW status         : %s\n", (mm->bFlags & MODES_ACFLAGS_EWSPEED_VALID)  ? "Valid" : "Unavailable");
+                    printf("    EW velocity       : %d\n", mm->ew_velocity);
+                    printf("    NS status         : %s\n", (mm->bFlags & MODES_ACFLAGS_NSSPEED_VALID)  ? "Valid" : "Unavailable");
+                    printf("    NS velocity       : %d\n", mm->ns_velocity);
+                    printf("    Vertical status   : %s\n", (mm->bFlags & MODES_ACFLAGS_VERTRATE_VALID) ? "Valid" : "Unavailable");
+                    printf("    Vertical rate src : %d\n", ((mm->msg[8] >> 4) & 1));
+                    printf("    Vertical rate     : %d\n", mm->vert_rate);
+
+                } else if (mm->mesub == 3 || mm->mesub == 4) {
+                    printf("    Heading status    : %s\n", (mm->bFlags & MODES_ACFLAGS_HEADING_VALID)  ? "Valid" : "Unavailable");
+                    printf("    Heading           : %d\n", mm->heading);
+                    printf("    Airspeed status   : %s\n", (mm->bFlags & MODES_ACFLAGS_SPEED_VALID)    ? "Valid" : "Unavailable");
+                    printf("    Airspeed          : %d\n", mm->velocity);
+                    printf("    Vertical status   : %s\n", (mm->bFlags & MODES_ACFLAGS_VERTRATE_VALID) ? "Valid" : "Unavailable");
+                    printf("    Vertical rate src : %d\n", ((mm->msg[8] >> 4) & 1));
+                    printf("    Vertical rate     : %d\n", mm->vert_rate);
+
+                } else {
+                    printf("    Unrecognized ME subtype: %d subtype: %d\n", mm->metype, mm->mesub);
+                }
+
+            } else if (mm->metype >= 5 && mm->metype <= 22) { // Ground or Airborne position, Baro or GNSS
+                printf("    F flag   : %s\n", (mm->msg[6] & 0x04) ? "odd" : "even");
+                printf("    T flag   : %s\n", (mm->msg[6] & 0x08) ? "UTC" : "non-UTC");
+                printf("    Altitude : %d feet\n", mm->altitude);
+                if (mm->bFlags & MODES_ACFLAGS_LATLON_VALID) {
+                    printf("    Latitude : %f\n", mm->fLat);
+                    printf("    Longitude: %f\n", mm->fLon);
+                } else {
+                    printf("    Latitude : %d (not decoded)\n", mm->raw_latitude);
+                    printf("    Longitude: %d (not decoded)\n", mm->raw_longitude);
+                }
+
+            } else {
+                printf("    Unrecognized ME type: %d subtype: %d\n", mm->metype, mm->mesub);
+            }
+        }
+
+    } else if (mm->msgtype == 19) { // DF 19
+        printf("DF 19: Military Extended Squitter.\n");
+
+    } else if (mm->msgtype == 22) { // DF 22
+        printf("DF 22: Military Use.\n");
+
+    } else if (mm->msgtype == 24) { // DF 24
+        printf("DF 24: Comm D Extended Length Message.\n");
+
+    } else if (mm->msgtype == 32) { // DF 32 is special code we use for Mode A/C
+        printf("SSR : Mode A/C Reply.\n");
+        if (mm->fs & 0x0080) {
+            printf("  Mode A : %04x IDENT\n", mm->modeA);
+        } else {
+            printf("  Mode A : %04x\n", mm->modeA);
+            if (mm->bFlags & MODES_ACFLAGS_ALTITUDE_VALID)
+                {printf("  Mode C : %d feet\n", mm->altitude);}
+        }
+
+    } else {
+        printf("DF %d: Unknown DF Format.\n", mm->msgtype);
+    }
+
+    printf("\n");
+}
 
 //
 // =============================== Initialization ===========================
@@ -1041,7 +1357,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
             // If we've exceeded the permissible number of encoding errors, abandon ship now
             if (errors > MODES_MSG_ENCODER_ERRS) {
 
-                if        (i < MODES_SHORT_MSG_BITS) {
+                if (i < MODES_SHORT_MSG_BITS) {
                     msglen = 0;
 
                 } else if ((errorsTy == 1) && (theErrs == 0x80)) {
@@ -1119,7 +1435,6 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
             // Decode the received message
             decodeModesMessage(&mm, msg);
 
-
             // Skip this message if we are sure it's fine
             if (mm.crcok) {
                 j += (MODES_PREAMBLE_US+msglen)*2 - 1;
@@ -1151,12 +1466,15 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
 //
 void useModesMessage(struct modesMessage *mm) {
     if ((Modes.check_crc == 0) || (mm->crcok) || (mm->correctedbits)) { // not checking, ok or fixed
+    	fprintf(stdout, "found one.\n");
     	// create a copy :)
     	struct modesMessage *newMessage = (struct modesMessage *) malloc(sizeof(*newMessage));
         memset(newMessage, 0, sizeof(*newMessage));
         memcpy(newMessage,mm,sizeof(*mm));
         // put it to the end
+        fprintf(stdout,"%p",Modes.modeMessages);
     	if(!Modes.modeMessages){
+    		fprintf(stdout, "first one.\n");
     		newMessage->next = NULL;
     		Modes.modeMessages = newMessage;
     	}else{
@@ -1181,12 +1499,28 @@ void clearModeMessages(void){
 	}
 }
 
+// print the mode messages
+void printModeMessages(void){
+	if (Modes.modeMessages) {
+		struct modesMessage *n = Modes.modeMessages;
+		while(n != NULL){
+			//struct modesMessage *n1 = n;
+			displayModesMessage(n);
+			n = n->next;
+		}
+	}
+}
+
 // processes data from an rtlsdr device
 struct modesMessage *processData(unsigned char *buf) {
-	clearModeMessages();
+	fprintf(stdout, "start.\n");
 	Modes.pData = (uint16_t *) buf;
 	computeMagnitudeVector(Modes.pData);
+	fprintf(stdout, "comp.\n");
 	detectModeS(Modes.magnitude, MODES_ASYNC_BUF_SAMPLES);
+	fprintf(stdout, "okay.\n");
+	printModeMessages();
+	fprintf(stdout, "done.");
 	return Modes.modeMessages;
 }
 
