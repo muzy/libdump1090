@@ -58,7 +58,7 @@
 	#include <sys/ioctl.h>
 #endif
 
-#define MODES_ASYNC_BUF_SIZE       (4*16*16384)               // 2M
+#define MODES_ASYNC_BUF_SIZE       (4*16*16384)               // 1M
 #define MODES_ASYNC_BUF_SAMPLES    (MODES_ASYNC_BUF_SIZE / 2) // Each sample is 2 bytes
 #define MODES_MSG_SQUELCH_LEVEL    0x02FF                     // Average signal strength limit
 #define MODES_MSG_ENCODER_ERRS     3                          // Maximum number of encoding errors
