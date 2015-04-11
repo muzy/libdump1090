@@ -28,13 +28,13 @@ print libModeS
 class modesMessage(Structure):
     pass
 
-modesMessage._fields_ = [("msg", c_char_p),
+modesMessage._fields_ = [("msg", c_char*14),
                         ("msgbits", c_int),
                         ("msgtype", c_int),
                         ("crcok", c_int),
                         ("crc", c_uint),
                         ("correctedbits", c_int),
-                        ("corrected", c_char_p),
+                        ("corrected", c_char*2),
                         ("addr", c_uint),
                         ("phase_corrected", c_int),
                         ("timestampMsg", c_uint),
@@ -49,7 +49,7 @@ modesMessage._fields_ = [("msg", c_char_p),
                         ("raw_longitude", c_int),
                         ("fLat", c_double),
                         ("fLon", c_double),
-                        ("flight", c_char_p),                        
+                        ("flight", c_char*16),                        
                         ("ew_velocity", c_int),
                         ("ns_velocity", c_int),
                         ("vert_rate", c_int),
@@ -78,6 +78,6 @@ f.restype, f.argtypes = None, None
 
 # struct modesMessage *processData(unsigned char *buf);
 f = libModeS.processData
-f.restype, f.argtypes = POINTER(modesMessage), [POINTER(c_ubyte)]
+f.restype, f.argtypes = POINTER(modesMessage), [c_char_p]
 
 __all__ = ['libModeS', 'modesMessage']

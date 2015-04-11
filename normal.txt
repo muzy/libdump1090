@@ -1,0 +1,62 @@
+*5d4bcdda510732;
+CRC: 000000 (ok)
+DF 11: All Call Reply.
+  Capability  : 5 (Level 2+3+4 (DF0,4,5,11,20,21,24,code7 - is airborne))
+  ICAO Address: 4bcdda
+  IID         : II-00
+
+*5d3cf194f7fbb6;
+CRC: 000000 (ok)
+DF 11: All Call Reply.
+  Capability  : 5 (Level 2+3+4 (DF0,4,5,11,20,21,24,code7 - is airborne))
+  ICAO Address: 3cf194
+  IID         : II-00
+
+*5d4b162053f53b;
+CRC: 000000 (ok)
+DF 11: All Call Reply.
+  Capability  : 5 (Level 2+3+4 (DF0,4,5,11,20,21,24,code7 - is airborne))
+  ICAO Address: 4b1620
+  IID         : II-00
+
+*8d4b162060af84832fef827c45bc;
+CRC: 000000 (ok)
+DF 17: ADS-B message.
+  Capability     : 5 (Level 2+3+4 (DF0,4,5,11,20,21,24,code7 - is airborne))
+  ICAO Address   : 4b1620
+  Extended Squitter  Type: 12
+  Extended Squitter  Sub : 0
+  Extended Squitter  Name: Airborne Position (Baro Altitude)
+    F flag   : odd
+    T flag   : non-UTC
+    Altitude : 34000 feet
+    Latitude : 16791 (not decoded)
+    Longitude: 126850 (not decoded)
+
+*02e195b81d1c71;
+CRC: 4b1620 (ok)
+DF 0: Short Air-Air Surveillance.
+  VS             : Airborne
+  CC             : 1
+  SL             : 7
+  Altitude       : 34000 feet
+  ICAO Address   : 4b1620
+
+*02a6059b26cfd6;
+CRC: 3cf194 (ok)
+DF 0: Short Air-Air Surveillance.
+  VS             : Airborne
+  CC             : 1
+  SL             : 5
+  Altitude       : 8075 feet
+  ICAO Address   : 3cf194
+
+*02e195b81d1c71;
+CRC: 4b1620 (ok)
+DF 0: Short Air-Air Surveillance.
+  VS             : Airborne
+  CC             : 1
+  SL             : 7
+  Altitude       : 34000 feet
+  ICAO Address   : 4b1620
+

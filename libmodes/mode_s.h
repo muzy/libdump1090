@@ -59,7 +59,7 @@
     #include <sys/ioctl.h>
 #endif
 
-#define MODES_ASYNC_BUF_SIZE       (8*16*16384)               // 2M
+#define MODES_ASYNC_BUF_SIZE       (4*16*16384)               // 2M
 #define MODES_ASYNC_BUF_SAMPLES    (MODES_ASYNC_BUF_SIZE / 2) // Each sample is 2 bytes
 #define MODES_MSG_SQUELCH_LEVEL    0x02FF                     // Average signal strength limit
 #define MODES_MSG_ENCODER_ERRS     3                          // Maximum number of encoding errors
@@ -68,6 +68,9 @@
 #define MODES_MAX_BITERRORS        2                          // Global max for fixable bit erros
 #define MODES_USER_LATITUDE_DFLT   (0.0)
 #define MODES_USER_LONGITUDE_DFLT  (0.0)
+
+#define MODES_ICAO_CACHE_LEN 1024 // Power of two required
+#define MODES_ICAO_CACHE_TTL 60   // Time to live of cached addresses
 
 #define MODES_PREAMBLE_US        8              // microseconds = bits
 #define MODES_PREAMBLE_SAMPLES  (MODES_PREAMBLE_US       * 2)
@@ -81,9 +84,9 @@
 #define MODES_LONG_MSG_SIZE     (MODES_LONG_MSG_SAMPLES  * sizeof(uint16_t))
 #define MODES_SHORT_MSG_SIZE    (MODES_SHORT_MSG_SAMPLES * sizeof(uint16_t))
 
-#define MODES_RAWOUT_BUF_SIZE   (1500)
-#define MODES_RAWOUT_BUF_FLUSH  (MODES_RAWOUT_BUF_SIZE - 200)
-#define MODES_RAWOUT_BUF_RATE   (1000)            // 1000 * 64mS = 1 Min approx
+
+#define MODES_ICAO_CACHE_LEN 1024 // Power of two required
+#define MODES_ICAO_CACHE_TTL 60   // Time to live of cached addresses
 
 #define MODES_UNIT_FEET 0
 #define MODES_UNIT_METERS 1
@@ -166,7 +169,7 @@ struct modesMessage {
 struct {                             // Internal state
 
     uint16_t       *pData; // Raw IQ sample buffers from RTL
-
+    uint32_t       *icao_cache;      // Recently seen ICAO addresses cache
     uint16_t       *magnitude;       // Magnitude vector
     uint16_t       *maglut;          // I/Q -> Magnitude lookup table
 

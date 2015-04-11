@@ -364,7 +364,8 @@ void modesInit(void) {
     int i, q;
 
     // Allocate the various buffers used by Modes
-    if ( ((Modes.magnitude  = (uint16_t *) malloc(MODES_ASYNC_BUF_SIZE+MODES_PREAMBLE_SIZE+MODES_LONG_MSG_SIZE) ) == NULL) ||
+    if ( ((Modes.icao_cache = (uint32_t *) malloc(sizeof(uint32_t) * MODES_ICAO_CACHE_LEN * 2)                  ) == NULL) ||
+         ((Modes.magnitude  = (uint16_t *) malloc(MODES_ASYNC_BUF_SIZE+MODES_PREAMBLE_SIZE+MODES_LONG_MSG_SIZE) ) == NULL) ||
          ((Modes.maglut     = (uint16_t *) malloc(sizeof(uint16_t) * 256 * 256)                                ) == NULL) )
     {
         fprintf(stderr, "Out of memory allocating data buffer.\n");
@@ -373,7 +374,7 @@ void modesInit(void) {
 
     // Clear the buffers that have just been allocated, just in-case
     memset(Modes.magnitude,  0,   MODES_ASYNC_BUF_SIZE+MODES_PREAMBLE_SIZE+MODES_LONG_MSG_SIZE);
-
+    memset(Modes.icao_cache, 0,   sizeof(uint32_t) * MODES_ICAO_CACHE_LEN * 2);
 
     // Each I and Q value varies from 0 to 255, which represents a range from -1 to +1. To get from the
     // unsigned (0-255) range you therefore subtract 127 (or 128 or 127.5) from each I and Q, giving you
@@ -441,6 +442,47 @@ void setPhaseEnhance(void){
 
 void setAggressiveFixCRC(void){
 	Modes.nfix_crc = MODES_MAX_BITERRORS;
+}
+
+//=========================================================================
+//
+// Hash the ICAO address to index our cache of MODES_ICAO_CACHE_LEN
+// elements, that is assumed to be a power of two
+//
+uint32_t ICAOCacheHashAddress(uint32_t a) {
+    // The following three rounds wil make sure that every bit affects
+    // every output bit with ~ 50% of probability.
+    a = ((a >> 16) ^ a) * 0x45d9f3b;
+    a = ((a >> 16) ^ a) * 0x45d9f3b;
+    a = ((a >> 16) ^ a);
+    return a & (MODES_ICAO_CACHE_LEN-1);
+}
+//
+//=========================================================================
+//
+// Add the specified entry to the cache of recently seen ICAO addresses.
+// Note that we also add a timestamp so that we can make sure that the
+// entry is only valid for MODES_ICAO_CACHE_TTL seconds.
+//
+void addRecentlySeenICAOAddr(uint32_t addr) {
+    uint32_t h = ICAOCacheHashAddress(addr);
+    Modes.icao_cache[h*2] = addr;
+    Modes.icao_cache[h*2+1] = (uint32_t) time(NULL);
+}
+//
+//=========================================================================
+//
+// Returns 1 if the specified ICAO address was seen in a DF format with
+// proper checksum (not xored with address) no more than * MODES_ICAO_CACHE_TTL
+// seconds ago. Otherwise returns 0.
+//
+int ICAOAddressWasRecentlySeen(uint32_t addr) {
+    uint32_t h = ICAOCacheHashAddress(addr);
+    uint32_t a = Modes.icao_cache[h*2];
+    uint32_t t = Modes.icao_cache[h*2+1];
+    uint64_t tn = time(NULL);
+
+    return ( (a) && (a == addr) && ( (tn - t) <= MODES_ICAO_CACHE_TTL) );
 }
 
 //
@@ -832,7 +874,7 @@ void decodeModesMessage(struct modesMessage *mm, unsigned char *msg) {
     mm->crc             = modesChecksum(msg, mm->msgbits);
 
     if ((mm->crc) && (Modes.nfix_crc) && ((mm->msgtype == 17) || (mm->msgtype == 18))) {
-    	//  if ((mm->crc) && (Modes.nfix_crc) && ((mm->msgtype == 11) || (mm->msgtype == 17))) {
+//  if ((mm->crc) && (Modes.nfix_crc) && ((mm->msgtype == 11) || (mm->msgtype == 17))) {
         //
         // Fixing single bit errors in DF-11 is a bit dodgy because we have no way to 
         // know for sure if the crc is supposed to be 0 or not - it could be any value 
@@ -844,6 +886,13 @@ void decodeModesMessage(struct modesMessage *mm, unsigned char *msg) {
         // IID against known good IID's. That's a TODO.
         //
         mm->correctedbits = fixBitErrors(msg, mm->msgbits, Modes.nfix_crc, mm->corrected);
+
+        // If we correct, validate ICAO addr to help filter birthday paradox solutions.
+        if (mm->correctedbits) {
+            uint32_t ulAddr = (msg[1] << 16) | (msg[2] << 8) | (msg[3]);
+            if (!ICAOAddressWasRecentlySeen(ulAddr))
+                mm->correctedbits = 0;
+        }
     }
     //
     // Note that most of the other computation happens *after* we fix the 
@@ -854,12 +903,38 @@ void decodeModesMessage(struct modesMessage *mm, unsigned char *msg) {
         mm->addr  = (msg[1] << 16) | (msg[2] << 8) | (msg[3]); 
         mm->ca    = (msg[0] & 0x07); // Responder capabilities
 
+        if ((mm->crcok = (0 == mm->crc))) {
+            // DF 11 : if crc == 0 try to populate our ICAO addresses whitelist.
+            addRecentlySeenICAOAddr(mm->addr);
+        } else if (mm->crc < 80) {
+            mm->crcok = ICAOAddressWasRecentlySeen(mm->addr);
+            if (mm->crcok) {
+                addRecentlySeenICAOAddr(mm->addr);
+            }
+        }
+
     } else if (mm->msgtype == 17) { // DF 17
         mm->addr  = (msg[1] << 16) | (msg[2] << 8) | (msg[3]); 
         mm->ca    = (msg[0] & 0x07); // Responder capabilities
+
+        if ((mm->crcok = (0 == mm->crc))) {
+            // DF 17 : if crc == 0 try to populate our ICAO addresses whitelist.
+            addRecentlySeenICAOAddr(mm->addr);
+        }
+
     } else if (mm->msgtype == 18) { // DF 18
         mm->addr  = (msg[1] << 16) | (msg[2] << 8) | (msg[3]); 
         mm->ca    = (msg[0] & 0x07); // Control Field
+
+        if ((mm->crcok = (0 == mm->crc))) {
+            // DF 18 : if crc == 0 try to populate our ICAO addresses whitelist.
+            addRecentlySeenICAOAddr(mm->addr);
+        }
+
+    } else { // All other DF's
+        // Compare the checksum with the whitelist of recently seen ICAO
+        // addresses. If it matches one, then declare the message as valid
+        mm->crcok = ICAOAddressWasRecentlySeen(mm->addr = mm->crc);
     }
 
     // If we're checking CRC and the CRC is invalid, then we can't trust any 
@@ -1091,7 +1166,6 @@ void decodeModesMessage(struct modesMessage *mm, unsigned char *msg) {
         }
     }
 }
-
 //
 //=========================================================================
 //
@@ -1466,15 +1540,12 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
 //
 void useModesMessage(struct modesMessage *mm) {
     if ((Modes.check_crc == 0) || (mm->crcok) || (mm->correctedbits)) { // not checking, ok or fixed
-    	fprintf(stdout, "found one.\n");
     	// create a copy :)
     	struct modesMessage *newMessage = (struct modesMessage *) malloc(sizeof(*newMessage));
         memset(newMessage, 0, sizeof(*newMessage));
         memcpy(newMessage,mm,sizeof(*mm));
         // put it to the end
-        fprintf(stdout,"%p",Modes.modeMessages);
-    	if(!Modes.modeMessages){
-    		fprintf(stdout, "first one.\n");
+        if(!Modes.modeMessages){
     		newMessage->next = NULL;
     		Modes.modeMessages = newMessage;
     	}else{
@@ -1513,14 +1584,10 @@ void printModeMessages(void){
 
 // processes data from an rtlsdr device
 struct modesMessage *processData(unsigned char *buf) {
-	fprintf(stdout, "start.\n");
 	Modes.pData = (uint16_t *) buf;
 	computeMagnitudeVector(Modes.pData);
-	fprintf(stdout, "comp.\n");
 	detectModeS(Modes.magnitude, MODES_ASYNC_BUF_SAMPLES);
-	fprintf(stdout, "okay.\n");
 	printModeMessages();
-	fprintf(stdout, "done.");
 	return Modes.modeMessages;
 }
 
