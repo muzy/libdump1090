@@ -40,19 +40,18 @@
 #define MODES_DUMP1090_VERSION     "1.10.3010.14"
 
 // ============================= Include files ==========================
+#include <stdint.h>
 
 #ifndef _WIN32
     #include <stdio.h>
     #include <string.h>
     #include <stdlib.h>
-    #include <pthread.h>
     #include <stdint.h>
     #include <errno.h>
     #include <unistd.h>
     #include <math.h>
     #include <sys/time.h>
     #include <sys/timeb.h>
-    #include <signal.h>
     #include <fcntl.h>
     #include <ctype.h>
     #include <sys/stat.h>
