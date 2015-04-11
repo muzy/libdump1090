@@ -1587,7 +1587,7 @@ struct modesMessage *processData(unsigned char *buf) {
 	Modes.pData = (uint16_t *) buf;
 	computeMagnitudeVector(Modes.pData);
 	detectModeS(Modes.magnitude, MODES_ASYNC_BUF_SAMPLES);
-	printModeMessages();
+	//printModeMessages();
 	return Modes.modeMessages;
 }
 
