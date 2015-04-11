@@ -48,6 +48,9 @@ class ModeSDetectorMessage():
 	"""
 	def __init__(self, modesMessage):
 		self.msg 		= "".join("{:02x}".format(ord(c)) for c in modesMessage.msg)
+		# this msg needs to be sanitized...
+		if modesMessage.msgbits == 56:
+			self.msg 	= self.msg[:14]
 		self.msgbits 	= modesMessage.msgbits
 		self.msgtype 	= modesMessage.msgtype
 		self.crcok 		= False if modesMessage == 0 else True
@@ -86,28 +89,30 @@ class ModeSDetector(object):
 
 	ADSB_FREQ = 1090000000
 	ADSB_RATE = 2000000
-	ADSB_BUF_SIZE = 4*16*16384 # 2MB
+	ADSB_BUF_SIZE = 4*16*16384 # 1MB
 
 	def __init__(self, device_index=0):
-		"""
 		self.rtlsdr = RtlSdr(device_index=device_index)
 		self.rtlsdr.set_center_freq(self.ADSB_FREQ)
 		self.rtlsdr.set_sample_rate(self.ADSB_RATE)
 		self.rtlsdr.set_gain(100)
-		"""
 
-		f = open('output.bin', 'rb')
-		p = create_string_buffer(f.read()) 
-		print p
+		#f = open('output.bin', 'rb')
+		#p = create_string_buffer(f.read()) 
+		#print p
 
 		libModeS.modesInit()
 		libModeS.setPhaseEnhance()
 		libModeS.setAggressiveFixCRC()
-		mm = libModeS.processData(p)
-		#pprint(mm.contents.unit)
-		foo = ModeSDetectorMessage(mm.contents)
-		pprint(vars(foo))
-		#print self.foo.contents
+		for i in xrange(0,20):
+			data = self.rtlsdr.read_bytes(self.ADSB_BUF_SIZE)
+			mm = libModeS.processData(cast(data,c_char_p))
+			#pprint(mm.contents.unit)
+			while mm:
+				foo = ModeSDetectorMessage(mm.contents)
+				pprint(vars(foo))
+				mm = mm.contents.next
+			#print self.foo.contents
 
 modes = ModeSDetector()
 

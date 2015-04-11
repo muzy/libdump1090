@@ -39,6 +39,11 @@ For windows 32 bit use:
 /usr/bin/i686-w64-mingw32-gcc -g -c -Wall mode_s.c
 /usr/bin/i686-w64-mingw32-gcc -shared -o libmodes.dll mode_s.o -Wl,--out-implib,libmodes.a
 
+Limitations
+---
+
+This actually does work only, if the data is exactly 1024KByte in size.
+
 Credits
 ---
 
