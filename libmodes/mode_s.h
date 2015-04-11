@@ -54,7 +54,9 @@
 #include <fcntl.h>
 #include <ctype.h>
 #include <sys/stat.h>
-#include <sys/ioctl.h>
+#ifndef _WIN32
+	#include <sys/ioctl.h>
+#endif
 
 #define MODES_ASYNC_BUF_SIZE       (4*16*16384)               // 2M
 #define MODES_ASYNC_BUF_SAMPLES    (MODES_ASYNC_BUF_SIZE / 2) // Each sample is 2 bytes
