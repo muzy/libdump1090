@@ -22,11 +22,22 @@ On Linux and OS X run the following command first:
 
 On Linux then run:
 
- gcc -static -o libmodes.so mode_s.o
+ gcc -shared -o libmodes.so mode_s.o /usr/lib/x86_64-linux-gnu/libm.so
 
 On OS X then run:
 
  gcc -dynamiclib -o libmodes.so mode_s.o
+
+
+To cross-compile for windows with mingw on linux (for 64bit):
+
+/usr/bin/x86_64-w64-mingw32-gcc -g -c -Wall mode_s.c
+/usr/bin/x86_64-w64-mingw32-gcc -shared -o libmodes.dll mode_s.o -Wl,--out-implib,libmodes.a
+
+For windows 32 bit use:
+
+/usr/bin/i686-w64-mingw32-gcc -g -c -Wall mode_s.c
+/usr/bin/i686-w64-mingw32-gcc -shared -o libmodes.dll mode_s.o -Wl,--out-implib,libmodes.a
 
 Credits
 ---
