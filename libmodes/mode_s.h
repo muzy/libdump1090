@@ -41,22 +41,20 @@
 
 // ============================= Include files ==========================
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
-#ifndef _WIN32
-    #include <stdio.h>
-    #include <string.h>
-    #include <stdlib.h>
-    #include <stdint.h>
-    #include <errno.h>
-    #include <unistd.h>
-    #include <math.h>
-    #include <sys/time.h>
-    #include <sys/timeb.h>
-    #include <fcntl.h>
-    #include <ctype.h>
-    #include <sys/stat.h>
-    #include <sys/ioctl.h>
-#endif
+#include <stdlib.h>
+#include <stdint.h>
+#include <errno.h>
+#include <unistd.h>
+#include <math.h>
+#include <sys/time.h>
+#include <sys/timeb.h>
+#include <fcntl.h>
+#include <ctype.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
 
 #define MODES_ASYNC_BUF_SIZE       (4*16*16384)               // 2M
 #define MODES_ASYNC_BUF_SAMPLES    (MODES_ASYNC_BUF_SIZE / 2) // Each sample is 2 bytes
