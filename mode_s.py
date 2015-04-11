@@ -109,10 +109,7 @@ class ModeSDetector(object):
 				else:
 					buff = create_string_buffer(data)
 					mm = libModeS.processData(buff)
-					while mm:
-						message = ModeSDetectorMessage(mm.contents)
-						self.messages.append(message)
-						mm = mm.contents.next
+					self.readDataToBuffer(mm)
 
 
 	def initRTLSDR(self):
@@ -128,11 +125,23 @@ class ModeSDetector(object):
 			self.initRTLSDR()
 		for i in xrange(0,times):
 			data = self.rtlsdr.read_bytes(self.ADSB_BUF_SIZE)
-			mm = libModeS.processData(cast(data,c_char_p))
-			while mm:
-				message = ModeSDetectorMessage(mm.contents)
-				self.messages.append(message)
-				mm = mm.contents.next
+			self.processFromRTLSDR(data)
+
+	def processFromRTLSDR(self,data,rtlsdr=None):
+		mm = libModeS.processData(cast(data,c_char_p))
+		self.readDataToBuffer(mm)
+
+	def readFromRTLSDRAsync(self):
+		self.rtlsdr.read_bytes_async(self.processFromRTLSDR,num_bytes=self.ADSB_BUF_SIZE)
+
+	def stopReadFromRTLSDRAsync(self):
+		self.rtlsdr.cancel_read_async()
+
+	def readDataToBuffer(self,mm):
+		while mm:
+			message = ModeSDetectorMessage(mm.contents)
+			self.messages.append(message)
+			mm = mm.contents.next
 
 	def printMessages(self):
 		for message in self.messages:
