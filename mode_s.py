@@ -113,7 +113,7 @@ class ModeSDetector(object):
 
 
 	def initRTLSDR(self):
-		self.rtlsdr = RtlSdr(device_index=device_index)
+		self.rtlsdr = RtlSdr(device_index=self.device_index)
 		self.rtlsdr.set_center_freq(self.ADSB_FREQ)
 		self.rtlsdr.set_sample_rate(self.ADSB_RATE)
 		self.rtlsdr.set_gain(100)
