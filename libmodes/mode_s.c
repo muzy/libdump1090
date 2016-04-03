@@ -1328,6 +1328,7 @@ void detectModeS(uint16_t *m, uint32_t mlen) {
         mm.bFlags          =
         mm.crcok           = 
         mm.correctedbits   = 0;
+        mm.msgpos          = j;
 
         if (!use_correction)  // This is not a re-try with phase correction
             {                 // so try to find a new preamble

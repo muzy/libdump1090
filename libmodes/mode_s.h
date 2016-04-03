@@ -123,6 +123,7 @@
 struct modesMessage {
     // Generic fields
     unsigned char msg[MODES_LONG_MSG_BYTES];      // Binary message.
+    uint32_t      msgpos;                         // Position of message in the buffer 
     int           msgbits;                        // Number of bits in message 
     int           msgtype;                        // Downlink format #
     int           crcok;                          // True if CRC was valid

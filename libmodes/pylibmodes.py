@@ -29,6 +29,7 @@ class modesMessage(Structure):
     pass
 
 modesMessage._fields_ = [("msg", c_char*14),
+                        ("msgpos", c_int),
                         ("msgbits", c_int),
                         ("msgtype", c_int),
                         ("crcok", c_int),
