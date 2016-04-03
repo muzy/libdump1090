@@ -11,6 +11,7 @@ class ModeSDetectorMessage():
 	Class member variables
 	"""
 	msg 	= None
+	msgpos	= None
 	msgbits = None
 	msgtype = None
 	crcok 	= None
@@ -51,6 +52,7 @@ class ModeSDetectorMessage():
 		# this msg needs to be sanitized...
 		if modesMessage.msgbits == 56:
 			self.msg 	= self.msg[:14]
+		self.msgpos		= modesMessage.msgpos
 		self.msgbits 	= modesMessage.msgbits
 		self.msgtype 	= modesMessage.msgtype
 		self.crcok 		= False if modesMessage == 0 else True
