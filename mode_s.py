@@ -3,6 +3,7 @@ from rtlsdr import *
 from time import gmtime
 from libmodes import *
 from pprint import pprint
+import sys
 #from bitstring import *
 #except ImportError: from .libmodes import libModeS, modesMessage
 
@@ -48,7 +49,11 @@ class ModeSDetectorMessage():
 	TODO: support for bflags
 	"""
 	def __init__(self, modesMessage):
-		self.msg 		= "".join("{:02x}".format(ord(c)) for c in modesMessage.msg)
+		if sys.version_info[0] >= 3:
+			self.msg 	= "".join("{:02x}".format(c) for c in modesMessage.msg)
+		else:
+			self.msg 	= "".join("{:02x}".format(ord(c)) for c in modesMessage.msg)
+
 		# this msg needs to be sanitized...
 		if modesMessage.msgbits == 56:
 			self.msg 	= self.msg[:14]
@@ -65,7 +70,7 @@ class ModeSDetectorMessage():
 		self.timestampMsg 	= gmtime()
 		self.remote 		= modesMessage.remote
 		self.signalLevel	= ord(modesMessage.signalLevel)
-		self.capability		= modesMessage.ca	
+		self.capability		= modesMessage.ca
 		self.iid			= modesMessage.iid
 		self.metype			= modesMessage.metype
 		self.mesub			= modesMessage.mesub
@@ -100,7 +105,7 @@ class ModeSDetector(object):
 		libModeS.modesInit()
 		libModeS.setPhaseEnhance()
 		libModeS.setAggressiveFixCRC()
-		
+
 
 	def readFromFile(self, filename):
 		with open(filename,'rb') as f:
@@ -153,6 +158,3 @@ class ModeSDetector(object):
 modes = ModeSDetector()
 modes.readFromFile("output.bin")
 modes.printMessages()
-
-
-

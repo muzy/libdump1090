@@ -23,7 +23,7 @@ def load_libmodes():
 
 libModeS = load_libmodes()
 
-print libModeS
+print(libModeS)
 
 class modesMessage(Structure):
     pass
