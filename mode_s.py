@@ -130,9 +130,14 @@ class ModeSDetector(object):
 	def readFromRTLSDR(self,times):
 		if not self.rtlsdr.init:
 			self.initRTLSDR()
-		for i in xrange(0,times):
-			data = self.rtlsdr.read_bytes(self.ADSB_BUF_SIZE)
-			self.processFromRTLSDR(data)
+		if sys.version_info[0] >= 3:
+			for i in range(0,times):
+			    data = self.rtlsdr.read_bytes(self.ADSB_BUF_SIZE)
+			    self.processFromRTLSDR(data)
+		else:
+			for i in xrange(0,times):
+			    data = self.rtlsdr.read_bytes(self.ADSB_BUF_SIZE)
+			    self.processFromRTLSDR(data)
 
 	def processFromRTLSDR(self,data,rtlsdr=None):
 		mm = libModeS.processData(cast(data,c_char_p))
